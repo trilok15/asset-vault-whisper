@@ -14,7 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      asset_tags: {
+        Row: {
+          asset_id: string
+          tag_id: string
+        }
+        Insert: {
+          asset_id: string
+          tag_id: string
+        }
+        Update: {
+          asset_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_tags_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration: number | null
+          file_path: string
+          file_size: number
+          file_type: string
+          filename: string
+          height: number | null
+          id: string
+          mime_type: string | null
+          updated_at: string
+          user_id: string | null
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration?: number | null
+          file_path: string
+          file_size: number
+          file_type: string
+          filename: string
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          updated_at?: string
+          user_id?: string | null
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration?: number | null
+          file_path?: string
+          file_size?: number
+          file_type?: string
+          filename?: string
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          updated_at?: string
+          user_id?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
