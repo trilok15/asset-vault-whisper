@@ -8,6 +8,7 @@ import { useAssets, useTags, useDeleteAsset } from '@/hooks/useAssets';
 import { Asset } from '@/types/asset';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export const AssetGallery = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +48,47 @@ export const AssetGallery = () => {
     setSelectedTags([]);
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    for (const file of Array.from(files)) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('assets')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { error: dbError } = await supabase
+          .from('assets')
+          .insert({
+            filename: file.name,
+            file_path: filePath,
+            file_type: file.type,
+            file_size: file.size,
+            mime_type: file.type,
+          });
+
+        if (dbError) throw dbError;
+
+        toast({
+          title: "Upload successful",
+          description: `${file.name} has been uploaded.`,
+        });
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: `Failed to upload ${file.name}. Please try again.`,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -57,9 +99,19 @@ export const AssetGallery = () => {
             Manage and browse your digital assets
           </p>
         </div>
-        <Button className="gap-2">
-          <Upload className="h-4 w-4" />
-          Upload Assets
+        <input
+          type="file"
+          id="file-upload"
+          multiple
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+          className="hidden"
+          onChange={handleFileUpload}
+        />
+        <Button asChild className="gap-2">
+          <label htmlFor="file-upload" className="cursor-pointer">
+            <Upload className="h-4 w-4" />
+            Upload Assets
+          </label>
         </Button>
       </div>
 

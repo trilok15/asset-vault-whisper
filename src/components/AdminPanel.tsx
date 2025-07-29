@@ -10,11 +10,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Settings, Plus, Trash2, Edit, Database } from 'lucide-react';
 import { useAssets, useTags, useCreateTag } from '@/hooks/useAssets';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export const AdminPanel = () => {
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3b82f6');
   const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
+  const [editingTag, setEditingTag] = useState<any>(null);
+  const [editTagName, setEditTagName] = useState('');
+  const [editTagColor, setEditTagColor] = useState('');
+  const [editingAsset, setEditingAsset] = useState<any>(null);
+  const [editAssetFilename, setEditAssetFilename] = useState('');
+  const [editAssetDescription, setEditAssetDescription] = useState('');
 
   const { data: assets } = useAssets();
   const { data: tags } = useTags();
@@ -41,6 +48,115 @@ export const AdminPanel = () => {
       toast({
         title: "Error",
         description: "Failed to create tag. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditTag = (tag: any) => {
+    setEditingTag(tag);
+    setEditTagName(tag.name);
+    setEditTagColor(tag.color);
+  };
+
+  const handleUpdateTag = async () => {
+    if (!editingTag || !editTagName.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('tags')
+        .update({ name: editTagName, color: editTagColor })
+        .eq('id', editingTag.id);
+
+      if (error) throw error;
+
+      setEditingTag(null);
+      toast({
+        title: "Tag updated",
+        description: "Tag has been successfully updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update tag. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteTag = async (tagId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tags')
+        .delete()
+        .eq('id', tagId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tag deleted",
+        description: "Tag has been successfully deleted.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete tag. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditAsset = (asset: any) => {
+    setEditingAsset(asset);
+    setEditAssetFilename(asset.filename);
+    setEditAssetDescription(asset.description || '');
+  };
+
+  const handleUpdateAsset = async () => {
+    if (!editingAsset || !editAssetFilename.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ 
+          filename: editAssetFilename, 
+          description: editAssetDescription 
+        })
+        .eq('id', editingAsset.id);
+
+      if (error) throw error;
+
+      setEditingAsset(null);
+      toast({
+        title: "Asset updated",
+        description: "Asset has been successfully updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "Failed to update asset. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteAsset = async (assetId: string) => {
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .delete()
+        .eq('id', assetId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Asset deleted",
+        description: "Asset has been successfully deleted.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete asset. Please try again.",
         variant: "destructive",
       });
     }
@@ -240,10 +356,61 @@ export const AdminPanel = () => {
                       <span className="font-medium">{tag.name}</span>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleEditTag(tag)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Tag</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="edit-tag-name">Tag Name</Label>
+                              <Input
+                                id="edit-tag-name"
+                                value={editTagName}
+                                onChange={(e) => setEditTagName(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="edit-tag-color">Color</Label>
+                              <div className="flex gap-2 items-center">
+                                <Input
+                                  id="edit-tag-color"
+                                  type="color"
+                                  value={editTagColor}
+                                  onChange={(e) => setEditTagColor(e.target.value)}
+                                  className="w-20 h-10"
+                                />
+                                <Input
+                                  value={editTagColor}
+                                  onChange={(e) => setEditTagColor(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setEditingTag(null)}>
+                                Cancel
+                              </Button>
+                              <Button onClick={handleUpdateTag}>Update</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-destructive"
+                        onClick={() => handleDeleteTag(tag.id)}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -257,7 +424,7 @@ export const AdminPanel = () => {
         <TabsContent value="assets" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Asset Management</h2>
-            <Button variant="outline">
+            <Button variant="outline" title="Bulk operations allow you to select multiple assets and perform actions like delete, download, or tag assignment all at once">
               Bulk Operations
             </Button>
           </div>
@@ -293,10 +460,54 @@ export const AdminPanel = () => {
                       ))}
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleEditAsset(asset)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Asset</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="edit-filename">Filename</Label>
+                              <Input
+                                id="edit-filename"
+                                value={editAssetFilename}
+                                onChange={(e) => setEditAssetFilename(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="edit-description">Description</Label>
+                              <Textarea
+                                id="edit-description"
+                                value={editAssetDescription}
+                                onChange={(e) => setEditAssetDescription(e.target.value)}
+                                placeholder="Enter asset description..."
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setEditingAsset(null)}>
+                                Cancel
+                              </Button>
+                              <Button onClick={handleUpdateAsset}>Update</Button>
+                            </div>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 text-destructive"
+                        onClick={() => handleDeleteAsset(asset.id)}
+                      >
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
