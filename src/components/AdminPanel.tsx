@@ -7,10 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Plus, Trash2, Edit, Database } from 'lucide-react';
+import { Settings, Plus, Trash2, Edit, Database, LogOut } from 'lucide-react';
 import { useAssets, useTags, useCreateTag } from '@/hooks/useAssets';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 export const AdminPanel = () => {
   const [newTagName, setNewTagName] = useState('');
@@ -22,10 +23,12 @@ export const AdminPanel = () => {
   const [editingAsset, setEditingAsset] = useState<any>(null);
   const [editAssetFilename, setEditAssetFilename] = useState('');
   const [editAssetDescription, setEditAssetDescription] = useState('');
+  const [editAssetTags, setEditAssetTags] = useState<string[]>([]);
 
   const { data: assets } = useAssets();
   const { data: tags } = useTags();
   const createTag = useCreateTag();
+  const { signOut } = useAuth();
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) return;
@@ -110,13 +113,15 @@ export const AdminPanel = () => {
     setEditingAsset(asset);
     setEditAssetFilename(asset.filename);
     setEditAssetDescription(asset.description || '');
+    setEditAssetTags(asset.tags?.map((tag: any) => tag.id) || []);
   };
 
   const handleUpdateAsset = async () => {
     if (!editingAsset || !editAssetFilename.trim()) return;
 
     try {
-      const { error } = await supabase
+      // Update asset details
+      const { error: assetError } = await supabase
         .from('assets')
         .update({ 
           filename: editAssetFilename, 
@@ -124,7 +129,29 @@ export const AdminPanel = () => {
         })
         .eq('id', editingAsset.id);
 
-      if (error) throw error;
+      if (assetError) throw assetError;
+
+      // Remove existing tag associations
+      const { error: deleteError } = await supabase
+        .from('asset_tags')
+        .delete()
+        .eq('asset_id', editingAsset.id);
+
+      if (deleteError) throw deleteError;
+
+      // Add new tag associations
+      if (editAssetTags.length > 0) {
+        const tagAssociations = editAssetTags.map(tagId => ({
+          asset_id: editingAsset.id,
+          tag_id: tagId
+        }));
+
+        const { error: insertError } = await supabase
+          .from('asset_tags')
+          .insert(tagAssociations);
+
+        if (insertError) throw insertError;
+      }
 
       setEditingAsset(null);
       toast({
@@ -138,6 +165,14 @@ export const AdminPanel = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const toggleAssetTag = (tagId: string) => {
+    setEditAssetTags(prev => 
+      prev.includes(tagId)
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
   };
 
   const handleDeleteAsset = async (assetId: string) => {
@@ -182,14 +217,20 @@ export const AdminPanel = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Settings className="h-6 w-6" />
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
-          <p className="text-muted-foreground">
-            Manage your CMS system and view analytics
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Settings className="h-6 w-6" />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
+            <p className="text-muted-foreground">
+              Manage your CMS system and view analytics
+            </p>
+          </div>
         </div>
+        <Button variant="outline" onClick={signOut} className="gap-2">
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </Button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
@@ -492,6 +533,22 @@ export const AdminPanel = () => {
                                 onChange={(e) => setEditAssetDescription(e.target.value)}
                                 placeholder="Enter asset description..."
                               />
+                            </div>
+                            <div>
+                              <Label>Tags</Label>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {tags?.map((tag) => (
+                                  <Badge
+                                    key={tag.id}
+                                    variant={editAssetTags.includes(tag.id) ? "default" : "outline"}
+                                    className="cursor-pointer hover:bg-primary/20 transition-colors"
+                                    style={editAssetTags.includes(tag.id) ? { backgroundColor: tag.color } : {}}
+                                    onClick={() => toggleAssetTag(tag.id)}
+                                  >
+                                    {tag.name}
+                                  </Badge>
+                                ))}
+                              </div>
                             </div>
                             <div className="flex justify-end gap-2">
                               <Button variant="outline" onClick={() => setEditingAsset(null)}>

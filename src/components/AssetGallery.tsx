@@ -17,23 +17,6 @@ export const AssetGallery = () => {
   
   const { data: assets, isLoading: assetsLoading } = useAssets(searchTerm, selectedTags);
   const { data: tags } = useTags();
-  const deleteAsset = useDeleteAsset();
-
-  const handleDeleteAsset = async (assetId: string) => {
-    try {
-      await deleteAsset.mutateAsync(assetId);
-      toast({
-        title: "Asset deleted",
-        description: "The asset has been successfully deleted.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete asset. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const toggleTag = (tagId: string) => {
     setSelectedTags(prev => 
@@ -48,71 +31,44 @@ export const AssetGallery = () => {
     setSelectedTags([]);
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
+  const downloadAsset = async (asset: Asset) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('assets')
+        .download(asset.file_path);
 
-    for (const file of Array.from(files)) {
-      try {
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${crypto.randomUUID()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('assets')
-          .upload(filePath, file);
+      if (error) throw error;
 
-        if (uploadError) throw uploadError;
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = asset.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-        const { error: dbError } = await supabase
-          .from('assets')
-          .insert({
-            filename: file.name,
-            file_path: filePath,
-            file_type: file.type,
-            file_size: file.size,
-            mime_type: file.type,
-          });
-
-        if (dbError) throw dbError;
-
-        toast({
-          title: "Upload successful",
-          description: `${file.name} has been uploaded.`,
-        });
-      } catch (error) {
-        toast({
-          title: "Upload failed",
-          description: `Failed to upload ${file.name}. Please try again.`,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Download started",
+        description: `${asset.filename} is being downloaded.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Download failed",
+        description: "Failed to download the asset. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Asset Gallery</h1>
-          <p className="text-muted-foreground">
-            Manage and browse your digital assets
-          </p>
-        </div>
-        <input
-          type="file"
-          id="file-upload"
-          multiple
-          accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-          className="hidden"
-          onChange={handleFileUpload}
-        />
-        <Button asChild className="gap-2">
-          <label htmlFor="file-upload" className="cursor-pointer">
-            <Upload className="h-4 w-4" />
-            Upload Assets
-          </label>
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Asset Gallery</h1>
+        <p className="text-muted-foreground">
+          Browse and discover digital assets
+        </p>
       </div>
 
       {/* Search and Filters */}
@@ -171,12 +127,23 @@ export const AssetGallery = () => {
       ) : assets && assets.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {assets.map((asset) => (
-            <AssetCard
+            <div
               key={asset.id}
-              asset={asset}
-              onDelete={handleDeleteAsset}
-              onView={setSelectedAsset}
-            />
+              className="group cursor-pointer relative aspect-[4/5] bg-muted rounded-lg overflow-hidden hover:shadow-lg transition-all"
+              onClick={() => setSelectedAsset(asset)}
+            >
+              <div className="w-full h-full flex items-center justify-center text-6xl">
+                {asset.file_type.startsWith('image/') ? '🖼️' :
+                 asset.file_type.startsWith('video/') ? '🎥' : 
+                 asset.file_type.startsWith('audio/') ? '🎵' : '📄'}
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-white">
+                <h3 className="font-medium text-sm truncate">{asset.filename}</h3>
+                <p className="text-xs opacity-75">
+                  {(asset.file_size / 1024 / 1024).toFixed(1)} MB
+                </p>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
@@ -263,6 +230,15 @@ export const AssetGallery = () => {
                       </div>
                     )}
                   </div>
+                </div>
+                
+                <div className="flex justify-end pt-4">
+                  <Button onClick={() => downloadAsset(selectedAsset)} className="gap-2">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                    Download
+                  </Button>
                 </div>
               </div>
             </>
